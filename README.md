@@ -13,3 +13,5 @@ FOR THE IMPATIENT
 
 * The API documetation start point is dist/javadoc/index.html
 * The SOS SERVER servlet is dist/sensornanny.war
+
+* change data_directory= in web/WEB-INF/sensornanny.properties to your local directory
