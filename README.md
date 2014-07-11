@@ -3,7 +3,7 @@ sosServer
 
 SOS basic transactional server
 
-FOR TH IMPATIENT
+FOR THE IMPATIENT
 
 * downwload sosServer-master.zip
 * unzip sosServer-master.zip
