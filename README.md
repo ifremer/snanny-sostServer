@@ -2,3 +2,13 @@ sosServer
 =========
 
 SOS basic transactional server
+
+FOR TH IMPATIENT
+downwload sosServer-master.zip
+unzip sosServer-master.zip
+cd sosServer-master
+mkdir dist
+ant -Dj2ee.server.home=dist
+
+The API documetation start point is dist/javadoc/index.html
+The SOS SERVER servlet is dist/sensornanny.war
