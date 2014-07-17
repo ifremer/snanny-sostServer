@@ -22,8 +22,9 @@ public class SensorNannyMessages
     public static String IMPORT_SENSOR_OK_2of2 = " successfully imported";    
     
 // uuid between 1of2 and 2of2
-    public static String IMPORT_OBSERVATION_OK_1of2 = "OeM ";
-    public static String IMPORT_OBSERVATION_OK_2of2 = " successfully imported";    
+    public static String IMPORT_OBSERVATION_OK_1of3 = "OeM ";
+    public static String IMPORT_OBSERVATION_OK_2of3 = " / ";
+    public static String IMPORT_OBSERVATION_OK_3of3 = " successfully imported";    
     
     // uuid between 1of2 and 2of2
     public static String DELETE_SENSOR_OK_1of2 = "SensorML ";

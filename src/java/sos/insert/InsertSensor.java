@@ -19,8 +19,10 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import messages.Success;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.json.JSONArray;
 import org.json.JSONML;
+import org.json.JSONObject;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -154,8 +156,8 @@ public class InsertSensor extends  DefaultHandler
             switch(sosformat)
             {
                 case JSON : //JSONObject jsonObject = new JSONObject(sensorML);                            
-                            //sensorML = XMLR.toString(jsonObject);
-                            JSONArray jsonArray = new JSONArray(sensorML);
+                            //sensorML = XMLR.toString(jsonObject);             
+                            JSONArray jsonArray = new JSONArray(StringEscapeUtils.unescapeXml(sensorML));
                             sensorML = JSONML.toString(jsonArray);
                             break;
 
@@ -165,7 +167,7 @@ public class InsertSensor extends  DefaultHandler
         catch(Exception ex)
         {
            throw new SensorNannyException(SensorNannyMessages.ERROR_JSON_INSERT+ex.getMessage(),Status.BAD_REQUEST);         
-        }
+        }        
         // validate xml
         SosValidation.singleton(sensorNannyConfig).xsdValidateSensorMl(sensorML);
         SosValidation.singleton(sensorNannyConfig).schematronValidateSensorMl(sensorML);
@@ -227,7 +229,22 @@ public class InsertSensor extends  DefaultHandler
                 {
                     throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
-            }                
+                observablePropertyOn = true;
+            }
+            else if(procedureOn)
+            {
+                buffer.append("<");
+                buffer.append(qName);
+                for(int i=0;i<atts.getLength();i++)
+                {
+                    buffer.append(" ");
+                    buffer.append(atts.getQName(i));
+                    buffer.append("=\"");
+                    buffer.append(org.json.XML.escape(atts.getValue(i)));
+                    buffer.append("\"");
+                }
+                buffer.append(">");
+            }
         }
         else
         {
@@ -245,10 +262,14 @@ public class InsertSensor extends  DefaultHandler
     @Override
     public void characters(char[] ch, int start, int length) throws SAXException
     {
-        if(formatOn || procedureOn)
+        if(procedureOn)
+        {
+            buffer.append(org.json.XML.escape(new String(ch,start,length)));
+        }  
+        else if(formatOn)
         {
             buffer.append(ch,start,length);
-        }        
+        }
     }
     /** SAX handling, Receive notification of the end of an element.
      * 
@@ -273,7 +294,7 @@ public class InsertSensor extends  DefaultHandler
                     throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
                 formatOn = false;
-                format = buffer.toString();                                                
+                format = buffer.toString();
             }
             else if(qName.compareTo(PROCEDURE) == 0)
             {
@@ -290,7 +311,14 @@ public class InsertSensor extends  DefaultHandler
                 {
                     throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
-            }                
+                observablePropertyOn = false;
+            }
+            else if(procedureOn)
+            {
+                buffer.append("</");
+                buffer.append(qName);
+                buffer.append(">");
+            }
         }
         else
         {

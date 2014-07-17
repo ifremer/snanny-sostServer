@@ -21,6 +21,7 @@ import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 import messages.SensorNannyException;
 import messages.SensorNannyMessages;
+import messages.Success;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -156,6 +157,10 @@ public class InsertObservation extends  DefaultHandler
             {
                 throw new SensorNannyException(SensorNannyMessages.ERROR_STORE_INSERT,Status.SERVICE_UNAVAILABLE);
             }
+            Success.submit(SensorNannyMessages.IMPORT_OBSERVATION_OK_1of3+uuids.getSensorMLuuid()+
+                           SensorNannyMessages.IMPORT_OBSERVATION_OK_2of3+uuids.getOeMuuid()+
+                           SensorNannyMessages.IMPORT_OBSERVATION_OK_3of3,response,out,sensorNannyConfig);
+        
         }
         
         
@@ -190,6 +195,20 @@ public class InsertObservation extends  DefaultHandler
                 buffer.delete(0,buffer.length());
                 observationOn = true;
             }
+            else if(observationOn)
+            {
+                buffer.append("<");
+                buffer.append(qName);
+                for(int i=0;i<atts.getLength();i++)
+                {
+                    buffer.append(" ");
+                    buffer.append(atts.getQName(i));
+                    buffer.append("=\"");
+                    buffer.append(org.json.XML.escape(atts.getValue(i)));
+                    buffer.append("\"");
+                }
+                buffer.append(">");
+            }
         }
         else
         {
@@ -208,7 +227,7 @@ public class InsertObservation extends  DefaultHandler
     {
         if(observationOn)
         {
-            buffer.append(ch,start,length);
+            buffer.append(org.json.XML.escape(new String(ch,start,length)));
         }
     }
     /** SAX handling, Receive notification of the end of an element. 
@@ -232,6 +251,12 @@ public class InsertObservation extends  DefaultHandler
             {
                 oems.add(buffer.toString());
                 observationOn = false;
+            }
+            else if(observationOn)
+            {
+                buffer.append("</");
+                buffer.append(qName);
+                buffer.append(">");
             }
         }
         else if(qName.compareTo(INSERT_OBSERVATION) != 0)

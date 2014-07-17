@@ -146,7 +146,11 @@ public class SensorMLOemUuid extends DefaultHandler
         rootOn = false;
         oemUuidTagOn = false;        
     }
-    
+    /** getter for Couple of uuid, SensorML and O&amp;M
+     * 
+     * @param xml O&amp;M xml
+     * @return Couple of uuid
+     */
     public synchronized Uuids getUuids(String xml)
     {
         

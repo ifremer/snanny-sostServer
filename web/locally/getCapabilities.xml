@@ -4,8 +4,250 @@ To change this license header, choose License Headers in Project Properties.
 To change this template file, choose Tools | Templates
 and open the template in the editor.
 -->
+<sos:Capabilities  
+   xmlns:sos="http://www.opengis.net/sos/2.0" 
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+   xmlns:ows="http://www.opengis.net/ows/1.1" 
+   xmlns:xlink="http://www.w3.org/1999/xlink" 
+   xmlns:fes="http://www.opengis.net/fes/2.0" 
+   xmlns:swes="http://www.opengis.net/swes/2.0" 
+   xmlns:gml="http://www.opengis.net/gml/3.2"    
+   xsi:schemaLocation="http://www.opengis.net/fes/2.0 http://schemas.opengis.net/filter/2.0/filterAll.xsd 
+      http://www.opengis.net/swes/2.0 http://schemas.opengis.net/swes/2.0/swes.xsd 
+      http://www.opengis.net/sos/2.0 http://schemas.opengis.net/sos/2.0/sosGetCapabilities.xsd 
+      http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd 
+      http://www.opengis.net/ows/1.1 http://schemas.opengis.net/ows/1.1.0/owsAll.xsd"
+      version="2.0.0"
+   >
+  
+  
+  <ows:ServiceIdentification>
+     <ows:Title>Basic SOS-T</ows:Title>
+     <ows:Abstract>Basic transactional SOS server, code available on github: https://github.com/ifremer/sosServer</ows:Abstract>
+     <ows:ServiceType>SOS-T</ows:ServiceType>
+     <ows:ServiceTypeVersion>2.0.0</ows:ServiceTypeVersion>     
+  </ows:ServiceIdentification>
+  <ows:ServiceProvider>
+     <ows:ProviderName>IFREMER</ows:ProviderName>
+     <ows:ServiceContact>
+        <ows:ContactInfo>
+           <ows:Address><ows:ElectronicMailAddress>sismer@ifremer.fr</ows:ElectronicMailAddress></ows:Address>           
+        </ows:ContactInfo>
+        <ows:Role>service desk</ows:Role>
+     </ows:ServiceContact>
+     
+  </ows:ServiceProvider>
+   <ows:OperationsMetadata>
+      <!-- ########################## -->
+      <!-- getCapabilities            -->
+      <!-- ########################## -->
+      <ows:Operation name="getCapabilities">
+         <ows:DCP>
+            <ows:HTTP>
+               <ows:Get xlink:href="http://www.ifremer.fr/sensornanny/sos?">
+                  <ows:Constraint name="Content-Type">
+                     <ows:AllowedValues>
+                        <ows:Value>application/x-kvp</ows:Value>
+                     </ows:AllowedValues>
+                  </ows:Constraint>
+                  </ows:Get>
+            </ows:HTTP>
+         </ows:DCP>
+         <ows:Parameter name="service"><ows:AllowedValues><ows:Value>SOS</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="request"><ows:AllowedValues><ows:Value>GetCapabilities</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="version"><ows:AllowedValues><ows:Value>2.0</ows:Value></ows:AllowedValues></ows:Parameter>                  
+      </ows:Operation>
+      <!-- ########################## -->
+      <!-- describeSensor             -->
+      <!-- ########################## -->
+      <ows:Operation name="describeSensor">
+         <ows:DCP>
+            <ows:HTTP>
+               <ows:Get xlink:href="http://www.ifremer.fr/sensornanny/sos?">
+                  <ows:Constraint name="Content-Type">
+                     <ows:AllowedValues>
+                        <ows:Value>application/x-kvp</ows:Value>
+                     </ows:AllowedValues>
+                  </ows:Constraint>
+               </ows:Get>              
+            </ows:HTTP>
+         </ows:DCP>
+         <ows:Parameter name="service"><ows:AllowedValues><ows:Value>SOS</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="request"><ows:AllowedValues><ows:Value>describeSensor</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="version"><ows:AllowedValues><ows:Value>2.0</ows:Value></ows:AllowedValues></ows:Parameter>         
+         <ows:Parameter name="procedure"><ows:AnyValue/></ows:Parameter>
+         <ows:Parameter name="responseFormat"><ows:AllowedValues>
+            <ows:Value>application/json;subtype="http://www.opengis.net/om/2.0"</ows:Value>
+            <ows:Value>text/xml;subtype="http://www.opengis.net/om/2.0"</ows:Value>            
+         </ows:AllowedValues></ows:Parameter>
+      </ows:Operation>
+      <!-- ########################## -->
+      <!-- getObservation             -->
+      <!-- NOT IMPLEMENTED            -->
+      <!-- ########################## -->
+      <!--
+      <ows:Operation name="getObservation">
+         <ows:DCP>            
+            <ows:HTTP>
+               <ows:Get xlink:href="http://www.ifremer.fr/sensornanny/sos?"></ows:Get>
+            </ows:HTTP>
+         </ows:DCP>        
+      </ows:Operation>
+      -->
+      <!-- ########################## -->
+      <!-- getObservationById         -->      
+      <!-- ########################## -->
+      <ows:Operation name="getObservationById">
+         <ows:DCP>
+            <ows:HTTP>
+               <ows:Get xlink:href="http://www.ifremer.fr/sensornanny/sos?">
+                  <ows:Constraint name="Content-Type">
+                     <ows:AllowedValues>
+                        <ows:Value>application/x-kvp</ows:Value>
+                     </ows:AllowedValues>
+                  </ows:Constraint>
+               </ows:Get>       
+            </ows:HTTP>           
+         </ows:DCP>
+         <ows:Parameter name="service"><ows:AllowedValues><ows:Value>SOS</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="request"><ows:AllowedValues><ows:Value>getObservationById</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="version"><ows:AllowedValues><ows:Value>2.0</ows:Value></ows:AllowedValues></ows:Parameter>         
+         <ows:Parameter name="observation"><ows:AnyValue/></ows:Parameter>
+         <ows:Parameter name="responseFormat"><ows:AllowedValues>
+            <ows:Value>application/json;subtype="http://www.opengis.net/om/2.0"</ows:Value>
+            <ows:Value>text/xml;subtype="http://www.opengis.net/om/2.0"</ows:Value>            
+         </ows:AllowedValues></ows:Parameter>
+      </ows:Operation>
+      <!-- ########################## -->
+      <!-- getResult             -->
+      <!-- NOT IMPLEMENTED            -->
+      <!-- ########################## -->
+      <!--
+      <ows:Operation name="getResult">
+         <ows:DCP>
+            <ows:HTTP></ows:HTTP>
+         </ows:DCP>
+      </ows:Operation>
+      -->
+      <!-- ########################## -->
+      <!-- insertSensor         -->      
+      <!-- ########################## -->
+      <ows:Operation name="insertSensor">
+         <ows:DCP>
+            <ows:HTTP>
+               <ows:Post  xlink:href="http://www.ifremer.fr/sensornanny/sos?">
+                  <ows:Constraint name="Content-Type">
+                     <ows:AllowedValues>
+                        <ows:Value>text/xml</ows:Value>
+                     </ows:AllowedValues>
+                  </ows:Constraint>
+               </ows:Post>
+            </ows:HTTP>            
+         </ows:DCP>
+         <ows:Parameter name="service"><ows:AllowedValues><ows:Value>SOS</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="request"><ows:AllowedValues><ows:Value>insertSensor</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="version"><ows:AllowedValues><ows:Value>2.0</ows:Value></ows:AllowedValues></ows:Parameter>         
+         <ows:Parameter name="procedureDescriptionFormat">
+            <ows:AllowedValues>
+            <ows:Value>application/json;subtype="http://www.opengis.net/om/2.0"</ows:Value>
+            <ows:Value>text/xml;subtype="http://www.opengis.net/om/2.0"</ows:Value>
+            </ows:AllowedValues>
+         </ows:Parameter>
+      </ows:Operation>
+      <!-- ########################## -->
+      <!-- deleteSensor         -->      
+      <!-- ########################## -->
+      <ows:Operation name="deleteSensor">
+         <ows:DCP>
+            <ows:HTTP>
+               <ows:Get xlink:href="http://www.ifremer.fr/sensornanny/sos?">
+                  <ows:Constraint name="Content-Type">
+                     <ows:AllowedValues>
+                        <ows:Value>application/x-kvp</ows:Value>
+                     </ows:AllowedValues>
+                  </ows:Constraint>
+               </ows:Get>       
+            </ows:HTTP>                      
+         </ows:DCP>
+         <ows:Parameter name="service"><ows:AllowedValues><ows:Value>SOS</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="request"><ows:AllowedValues><ows:Value>deleteSensor</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="version"><ows:AllowedValues><ows:Value>2.0</ows:Value></ows:AllowedValues></ows:Parameter>  
+         <ows:Parameter name="procedure"><ows:AnyValue/></ows:Parameter>
+      </ows:Operation>
+      <!-- ########################## -->
+      <!-- insertObservation          -->      
+      <!-- ########################## -->
+      <ows:Operation name="insertObservation">
+         <ows:DCP>
+            <ows:HTTP>
+               <ows:Post  xlink:href="http://www.ifremer.fr/sensornanny/sos?">
+                  <ows:Constraint name="Content-Type">
+                     <ows:AllowedValues>
+                        <ows:Value>text/xml</ows:Value>
+                     </ows:AllowedValues>
+                  </ows:Constraint>
+               </ows:Post>
+            </ows:HTTP>            
+         </ows:DCP>
+         <ows:Parameter name="service"><ows:AllowedValues><ows:Value>SOS</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="request"><ows:AllowedValues><ows:Value>insertObservation</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="version"><ows:AllowedValues><ows:Value>2.0</ows:Value></ows:AllowedValues></ows:Parameter>
+         <!-- missing format parameter see https://github.com/ifremer/sosServer/issues/2-->
+         <!--         
+         <ows:Parameter name="observationFormat">
+            <ows:AllowedValues>
+               <ows:Value>application/json;subtype="http://www.opengis.net/om/2.0"</ows:Value>
+               <ows:Value>text/xml;subtype="http://www.opengis.net/om/2.0"</ows:Value>
+            </ows:AllowedValues>
+         </ows:Parameter>
+         -->
+      </ows:Operation>
+      <!-- ########################## -->
+      <!-- deleteObservation          -->      
+      <!-- ########################## -->
+      <ows:Operation name="deleteObservation">
+         <ows:DCP>
+            <ows:HTTP>
+               <ows:Get xlink:href="http://www.ifremer.fr/sensornanny/sos?">
+                  <ows:Constraint name="Content-Type">
+                     <ows:AllowedValues>
+                        <ows:Value>application/x-kvp</ows:Value>
+                     </ows:AllowedValues>
+                  </ows:Constraint>
+               </ows:Get>       
+            </ows:HTTP>                      
+         </ows:DCP>
+         <ows:Parameter name="service"><ows:AllowedValues><ows:Value>SOS</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="request"><ows:AllowedValues><ows:Value>deleteSensor</ows:Value></ows:AllowedValues></ows:Parameter>
+         <ows:Parameter name="version"><ows:AllowedValues><ows:Value>2.0</ows:Value></ows:AllowedValues></ows:Parameter>  
+         <ows:Parameter name="observation"><ows:AnyValue/></ows:Parameter>
+      </ows:Operation>
+      <!-- ########################## -->
+      <!-- insertResult             -->
+      <!-- NOT IMPLEMENTED            -->
+      <!-- ########################## -->
+      <!--
+      <ows:Operation name="insertResult">
+         <ows:DCP>
+            <ows:HTTP></ows:HTTP>
+         </ows:DCP>
+      </ows:Operation>
+      -->
+      <!-- ########################## -->
+      <!-- deleteResult             -->
+      <!-- NOT IMPLEMENTED            -->
+      <!-- ########################## -->
+      <!--
+      <ows:Operation name="deleteResult">
+         <ows:DCP>
+            <ows:HTTP></ows:HTTP>
+         </ows:DCP>
+      </ows:Operation>
+   </ows:OperationsMetadata>
+   
+      -->
+   
+ </ows:OperationsMetadata>
+  
 
-
-<root>
-   getCapabilities .... 
-</root>
+</sos:Capabilities>
