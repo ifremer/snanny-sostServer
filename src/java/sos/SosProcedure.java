@@ -6,8 +6,8 @@
 
 package sos;
 
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import javax.ws.rs.core.Response.Status;
 
 /** Uuid procedure extraction from the persistent URL
@@ -29,7 +29,7 @@ public class SosProcedure {
         int index = procedureValue.indexOf(SOS_PROCEDURE_UUID_PREFIX);
         if(index == -1)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_URL_PROCEDURE,Status.BAD_REQUEST);    
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_URL_PROCEDURE,Status.BAD_REQUEST);    
         }
         String uuid = procedureValue.substring(index+SOS_PROCEDURE_UUID_PREFIX.length());
         return(uuid);

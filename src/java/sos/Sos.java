@@ -6,18 +6,25 @@
 
 package sos;
 
-import config.SensorNannyConfig;
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import com.couchbase.client.java.PersistTo;
+import com.couchbase.client.java.ReplicateTo;
+import com.couchbase.client.java.document.JsonDocument;
+import com.couchbase.client.java.transcoder.JsonArrayTranscoder;
+import com.couchbase.client.java.transcoder.JsonTranscoder;
+import config.SnannySostServerConfig;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.TimeUnit;
 import javax.servlet.ServletException;
 import javax.servlet.ServletInputStream;
 import javax.servlet.annotation.WebServlet;
@@ -26,14 +33,17 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.Response.Status;
 import messages.Success;
+import org.apache.commons.lang3.StringEscapeUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONML;
+import org.json.JSONObject;
 import sos.SosRequest.SOSREQUEST;
 import sos.SosFormat.SOSFORMAT;
 import static sos.SosFormat.SOSFORMAT.XML;
 import sos.SosService.SOSSERVICE;
 import sos.SosVersion.SOSVERSION;
+import sos.couchbase.CouchbaseManager;
 import sos.insert.InsertObservation;
 import sos.insert.InsertSensor;
 import validation.SosValidation;
@@ -47,8 +57,16 @@ public class Sos extends HttpServlet {
     
     private static String SERVLET_PRELOAD = "preload";
     private static boolean preloaded = false;
-    
-    
+    private static String info = "snanny-sostServer";
+    public static String SAMPLE_SYSTEM_UUID = "snimport-web0-0000-0000-417685250788";
+    public static String SAMPLE_OBSERVATION_UUID = "snimport-web0-0000-0000-417685250790";
+
+    /**
+     * @return the info
+     */
+    public static String getInfo() {
+        return info;
+    }
     
     /**
      * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
@@ -57,69 +75,85 @@ public class Sos extends HttpServlet {
      * @param request servlet request
      * @param response servlet response
      * @param post true for post method
-     * @throws SensorNannyException for bad request or service unavailable
+     * @throws SnannySostServerException for bad request or service unavailable
      */
     protected void processRequest(HttpServletRequest request, HttpServletResponse response,boolean post)
-            throws SensorNannyException
+            throws SnannySostServerException
     {
+        long t1 = System.currentTimeMillis();
+        System.out.println("Sos.processRequest starts");
         // retreive configuration
-        SensorNannyConfig sensorNannyConfig = SensorNannyConfig.singleton(request.getServletContext());
+        SnannySostServerConfig snannySostServerConfig = SnannySostServerConfig.singleton(request.getServletContext());
+        info = "snanny-sostServer"+snannySostServerConfig.getExtraInfo();
         
         // way to force initialization
         if(request.getParameter(SERVLET_PRELOAD) != null)
         {
             if(!preloaded)
             {
-                SosValidation.singleton(sensorNannyConfig);
+                System.out.println("Sos.processRequest preload");                                                               
+                
+                SosValidation.singleton(snannySostServerConfig);
                 InsertSensor.singleton();
+                InsertObservation.singleton();
+                
+                System.setProperty("http.proxyHost",snannySostServerConfig.getSquidHost());
+                System.setProperty("http.proxyPort",snannySostServerConfig.getSquidPort());
+                System.out.println("System.setProperty(\"http.proxyHost\","+snannySostServerConfig.getSquidHost()+");");
+                System.out.println("System.setProperty(\"http.proxyPort\","+snannySostServerConfig.getSquidPort()+");");
+                        
             }
             preloaded = true;
             try
             {
-                response.sendRedirect("/sensornanny/");
+                long t2 = System.currentTimeMillis();
+                long t = t2-t1;
+                System.out.println("Sos.processRequest stops after : "+t+"ms");
+                response.sendRedirect("/snanny-sostServer/");
                 return;                
             }
             catch(IOException lost){}
         }
-                        
+                   
         // get servlet response writer
         PrintWriter out = getPrintWriter(response);                                        
         
         // read request parameter                   
-        SOSREQUEST sosRequest = getRequestParameter(request);                        
+        SOSREQUEST sosRequest = getRequestParameter(request);
         
         String uuid;
         
         // process sos request
         switch(sosRequest)
-        {
+        {            
             case getCapabilities :     getServiceParameter(request);
                                        getVersionParameter(request);
-                                       getCapabilities(request,response,out,sensorNannyConfig);
+                                       getCapabilities(request,response,out,snannySostServerConfig);
                                        break;
             case describeSensor :      getServiceParameter(request);
                                        getVersionParameter(request);
-                                       describeSensor(request,response,out,sensorNannyConfig);
+                                       describeSensor(request,response,out,snannySostServerConfig);
                                        break;
             case getObservationById :  getServiceParameter(request);
                                        getVersionParameter(request);
-                                       getObservationById(request,response,out,sensorNannyConfig);
+                                       getObservationById(request,response,out,snannySostServerConfig);
                                        break;                
-            case insertSensor       :  checkPost(post, sosRequest);                                       
-                                       InsertSensor.singleton().insert(sensorNannyConfig,getPostContent(request,sensorNannyConfig),response,out);
+            case insertSensor       :  System.out.println("Sos.processRequest insertSensor");        
+                                       checkPost(post, sosRequest);
+                                       InsertSensor.singleton().insert(snannySostServerConfig,getPostContent(request,snannySostServerConfig),response,out);
                                        break;            
             case deleteSensor       :  getServiceParameter(request);
                                        getVersionParameter(request);
                                        uuid = getSosProcedureUuid(request);
-                                       deleteSensor(request,response,out,sensorNannyConfig,uuid);
+                                       deleteSensor(request,response,out,snannySostServerConfig,uuid);
                                        break;            
             case insertObservation  :  checkPost(post, sosRequest);
-                                       InsertObservation.singleton().insert(sensorNannyConfig,getPostContent(request,sensorNannyConfig),response,out);
+                                       InsertObservation.singleton().insert(snannySostServerConfig,getPostContent(request,snannySostServerConfig),response,out);
                                        break;                
             case deleteObservation  :  getServiceParameter(request);
                                        getVersionParameter(request);
                                        uuid = getSosObservationUuid(request);
-                                       deleteObservation(request,response,out,sensorNannyConfig,uuid);
+                                       deleteObservation(request,response,out,snannySostServerConfig,uuid);
                                        break;
             
             //For a version 0, some requests are not implemented:
@@ -131,6 +165,11 @@ public class Sos extends HttpServlet {
                         
         // close response writer
         out.close();
+        
+        long t2 = System.currentTimeMillis();
+        long t = t2-t1;
+        System.out.println("Sos.processRequest stops after : "+t+"ms");
+        
                 
     }
     
@@ -139,47 +178,47 @@ public class Sos extends HttpServlet {
      * @param request
      * @return the post content
      */
-    private String getPostContent(HttpServletRequest request,SensorNannyConfig sensorNannyConfig)
+    private String getPostContent(HttpServletRequest request,SnannySostServerConfig snannySostServerConfig)
     {
         try
         {
             // Don't use request.getReader() , fix charset with InputStreamReader
             ServletInputStream  servletInputStream = request.getInputStream();
-            InputStreamReader inputStreamReader = new InputStreamReader(request.getInputStream(),sensorNannyConfig.getCharset());                        
+            InputStreamReader inputStreamReader = new InputStreamReader(request.getInputStream(),snannySostServerConfig.getCharset());
             StringBuilder buffer = new StringBuilder();
             char[] buf = new char[4 * 1024]; // 4Kchar buffer
             int len;
             while ((len = inputStreamReader.read(buf, 0, buf.length)) != -1)
-            {
+            {                
                buffer.append(buf, 0, len);             
             }            
             return(buffer.toString());
         }
         catch(IOException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_POST,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_POST,Status.SERVICE_UNAVAILABLE);
         }
     }
     /** check errors for insert without post content
      * 
      * @param post
      * @param sosRequest
-     * @throws SensorNannyException 
+     * @throws SnannySostServerException 
      */
-    private void checkPost(boolean post,SOSREQUEST sosRequest) throws SensorNannyException
+    private void checkPost(boolean post,SOSREQUEST sosRequest) throws SnannySostServerException
     {
         switch(sosRequest)
         {
             case insertSensor : 
                     if(!post)
                     {
-                       throw new SensorNannyException(SensorNannyMessages.ERROR_ONLY_POST_INSERTSENSOR,Status.SERVICE_UNAVAILABLE);
+                       throw new SnannySostServerException(SnannySostServerMessages.ERROR_ONLY_POST_INSERTSENSOR,Status.SERVICE_UNAVAILABLE);
                     }
             
             case insertObservation :
                     if(!post)
                     {
-                       throw new SensorNannyException(SensorNannyMessages.ERROR_ONLY_POST_INSERTOBSERVATION,Status.SERVICE_UNAVAILABLE);
+                       throw new SnannySostServerException(SnannySostServerMessages.ERROR_ONLY_POST_INSERTOBSERVATION,Status.SERVICE_UNAVAILABLE);
                     }
         }
     }
@@ -197,7 +236,7 @@ public class Sos extends HttpServlet {
         }
         catch(IOException ioe) 
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_RESPONSE_WRITER,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_RESPONSE_WRITER,Status.SERVICE_UNAVAILABLE);
         }   
     }
     
@@ -211,7 +250,7 @@ public class Sos extends HttpServlet {
         String serviceValue = request.getParameter(SosService.SOS_SERVICE_KEYWORD);
         if(serviceValue == null)
         {
-           throw new SensorNannyException(SensorNannyMessages.ERROR_SERVICE_REQUIRED+SosService.getAvailableSosServices(),Status.BAD_REQUEST);
+           throw new SnannySostServerException(SnannySostServerMessages.ERROR_SERVICE_REQUIRED+SosService.getAvailableSosServices(),Status.BAD_REQUEST);
         }
         return(SosService.get(serviceValue));
     }
@@ -226,7 +265,7 @@ public class Sos extends HttpServlet {
         String versionValue = request.getParameter(SosVersion.SOS_VERSION_KEYWORD);
         if(versionValue == null)
         {
-           throw new SensorNannyException(SensorNannyMessages.ERROR_VERSION_REQUIRED+SosVersion.getAvailableSosVersions(),Status.BAD_REQUEST);
+           throw new SnannySostServerException(SnannySostServerMessages.ERROR_VERSION_REQUIRED+SosVersion.getAvailableSosVersions(),Status.BAD_REQUEST);
         }
         return(SosVersion.get(versionValue));
     }
@@ -242,12 +281,12 @@ public class Sos extends HttpServlet {
         String requestValue = request.getParameter(SosRequest.SOS_REQUEST_KEYWORD);
         if(requestValue == null)
         {
-           throw new SensorNannyException(SensorNannyMessages.ERROR_REQUEST_REQUIRED+SosRequest.getAvailableSosRequests(),Status.BAD_REQUEST);
+           throw new SnannySostServerException(SnannySostServerMessages.ERROR_REQUEST_REQUIRED+SosRequest.getAvailableSosRequests(),Status.BAD_REQUEST);
         }
         SOSREQUEST sosRequest = SosRequest.get(requestValue);
         if(!SosRequest.isAvailable(sosRequest))
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_REQUEST_NOT_IMPLEMENTED+SosRequest.getAvailableSosRequests(),Status.BAD_REQUEST);        
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_REQUEST_NOT_IMPLEMENTED+SosRequest.getAvailableSosRequests(),Status.BAD_REQUEST);        
         }
         return(sosRequest);
     }
@@ -270,17 +309,17 @@ public class Sos extends HttpServlet {
      * @param request Http Servlet Request
      * @param response Http Servlet Response
      * @param out PrintWriter for Http Servlet Response
-     * @param sensorNannyConfig the sos server configuration
-     * @throws SensorNannyException  server exception (I/O problem)
+     * @param snannySostServerConfig the sos server configuration
+     * @throws SnannySostServerException  server exception (I/O problem)
      */
-    private void getCapabilities(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SensorNannyConfig sensorNannyConfig) throws SensorNannyException
+    private void getCapabilities(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SnannySostServerConfig snannySostServerConfig) throws SnannySostServerException
     {
         try
         {                        
-            InputStream in = sensorNannyConfig.getCababilitiesInputstream();
+            InputStream in = snannySostServerConfig.getCababilitiesInputstream();
             BufferedReader reader = new BufferedReader(new InputStreamReader(in));
             String line;
-            response.setContentType("application/xml;charset="+sensorNannyConfig.getCharset().name());                        
+            response.setContentType("application/xml;charset="+snannySostServerConfig.getCharset().name());                        
             while ((line = reader.readLine()) != null)
             {
                 out.append(line);
@@ -289,7 +328,7 @@ public class Sos extends HttpServlet {
         }
         catch(IOException ioe)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_getCapabilities,Status.SERVICE_UNAVAILABLE);      
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_getCapabilities,Status.SERVICE_UNAVAILABLE);      
         }
     }
     
@@ -298,13 +337,13 @@ public class Sos extends HttpServlet {
      * @param request Http Servlet Request
      * @return the uuid
      */
-    private String getSosProcedureUuid(HttpServletRequest request) throws SensorNannyException
+    private String getSosProcedureUuid(HttpServletRequest request) throws SnannySostServerException
     {
         // read procedure parameter
         String procedureValue = request.getParameter(SosProcedure.SOS_PROCEDURE_KEYWORD);
         if(procedureValue == null)
         {
-           throw new SensorNannyException(SensorNannyMessages.ERROR_PROCEDURE_REQUIRED,Status.BAD_REQUEST);
+           throw new SnannySostServerException(SnannySostServerMessages.ERROR_PROCEDURE_REQUIRED,Status.BAD_REQUEST);
         }
         return(SosProcedure.getUuid(procedureValue));
     }
@@ -312,14 +351,14 @@ public class Sos extends HttpServlet {
      * 
      * @param request Http Servlet Request
      * @return the sos format (eg XML or JSON)
-     * @throws SensorNannyException 
+     * @throws SnannySostServerException 
      */
-    private SOSFORMAT getResponseFormatParameter(HttpServletRequest request) throws SensorNannyException
+    private SOSFORMAT getResponseFormatParameter(HttpServletRequest request) throws SnannySostServerException
     {
         String responseFormatValue = request.getParameter(SosFormat.SOS_RESPONSE_FORMAT_KEYWORD);
         if(responseFormatValue == null)
         {
-           throw new SensorNannyException(SensorNannyMessages.ERROR_RESPONSE_FORMAT_REQUIRED+SosFormat.getAvailableSosResponseFormats(),Status.BAD_REQUEST);
+           throw new SnannySostServerException(SnannySostServerMessages.ERROR_RESPONSE_FORMAT_REQUIRED+SosFormat.getAvailableSosResponseFormats(),Status.BAD_REQUEST);
         }
         return(SosFormat.getFormat(responseFormatValue));
     }
@@ -334,7 +373,7 @@ public class Sos extends HttpServlet {
         String observationValue = request.getParameter(SosObservation.SOS_OBSERVATION_KEYWORD);        
         if(observationValue == null)
         {
-           throw new SensorNannyException(SensorNannyMessages.ERROR_OBSERVATION_REQUIRED,Status.BAD_REQUEST);
+           throw new SnannySostServerException(SnannySostServerMessages.ERROR_OBSERVATION_REQUIRED,Status.BAD_REQUEST);
         }
         return(SosObservation.getUuid(observationValue));
     }
@@ -345,38 +384,94 @@ public class Sos extends HttpServlet {
      * @param request Http Servlet Request
      * @param response Http Servlet Response
      * @param out PrintWriter for Http Servlet Response
-     * @param sensorNannyConfig the sos server configuration
-     * @throws SensorNannyException (I/O or conversion problem)
+     * @param snannySostServerConfig the sos server configuration
+     * @throws SnannySostServerException (I/O or conversion problem)
      */
-    private void describeSensor(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SensorNannyConfig sensorNannyConfig) throws SensorNannyException
+    private void describeSensor(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SnannySostServerConfig snannySostServerConfig) throws SnannySostServerException
     {                
         String uuid = getSosProcedureUuid(request);
-        File uuidFile = SensorNannyConfig.singleton(request.getServletContext()).getSensorMlFile(uuid);        
         SOSFORMAT sosresponseformat = getResponseFormatParameter(request);
-        try
+        if(snannySostServerConfig.isCouchbase())
         {
-           byte[] encoded = Files.readAllBytes(Paths.get(uuidFile.toURI()));
-           String uuidFileContent = new String(encoded, sensorNannyConfig.getCharset());
-           response.setContentType(SosFormat.getContentType(sosresponseformat)); 
-           switch(sosresponseformat)
-           {
-                case JSON :  //JSONObject jsonObject = XMLR.toJSONObject(uuidFileContent);
-                             //out.append(jsonObject.toString());
-                             JSONArray jsonArray = JSONML.toJSONArray(uuidFileContent);
-                             out.append(jsonArray.toString());                                  
-                             break;
-                    
-                case XML :  out.append(uuidFileContent);
-                            break;                    
-           }                     
+            try
+            {                                
+               JsonDocument jsonDocument = CouchbaseManager.getSystemBucket().get(uuid);
+                              
+               if(jsonDocument == null)
+               {
+                   throw new SnannySostServerException(SnannySostServerMessages.ERROR_NO_UUID_RECORD_1of2+
+                                              uuid+
+                                              SnannySostServerMessages.ERROR_NO_UUID_RECORD_2of2,
+                                              Status.NOT_FOUND); 
+               }                              
+               response.setContentType(SosFormat.getContentType(sosresponseformat));
+               
+               switch(sosresponseformat)
+               {
+                    case JSON :  if(snannySostServerConfig.isJsonObject())
+                                 {
+                                     out.append(new JsonTranscoder().jsonObjectToString(jsonDocument.content().getObject(SnannySostServerConfig.FilejsonField)));
+                                 }
+                                 else
+                                 {
+                                    out.append(new JsonArrayTranscoder().jsonArrayToString(jsonDocument.content().getArray(SnannySostServerConfig.FilejsonField)));
+                                 }                                  
+                                 break;
+
+                    case XML :  if(snannySostServerConfig.isJsonObject())
+                                {
+                                    JSONObject jSONObject = new JSONObject(StringEscapeUtils.unescapeXml(new JsonTranscoder().jsonObjectToString(jsonDocument.content().getObject(SnannySostServerConfig.FilejsonField))));
+                                    out.append(JSONML.toString(jSONObject));
+                                }
+                                else
+                                {
+                                    JSONArray jsonArray = new JSONArray(StringEscapeUtils.unescapeXml(new JsonArrayTranscoder().jsonArrayToString(jsonDocument.content().getArray(SnannySostServerConfig.FilejsonField))));
+                                    out.append(JSONML.toString(jsonArray));
+                                }                                
+                                break;                    
+               } 
+               
+            }
+            catch(Exception ex)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_COUCHBASE_ERROR+ex.getMessage(),Status.SERVICE_UNAVAILABLE);
+            }
         }
-        catch(IOException io)
+        else
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_describeSensor,Status.SERVICE_UNAVAILABLE);
-        }     
-        catch(JSONException je)
-        {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_XML_JSON_CONVERSION+je.getMessage(),Status.SERVICE_UNAVAILABLE);
+            File uuidFile = snannySostServerConfig.getSensorMlFile(uuid);                
+            try
+            {
+               
+               byte[] encoded = Files.readAllBytes(Paths.get(uuidFile.toURI()));
+               String uuidFileContent = new String(encoded, snannySostServerConfig.getCharset());
+               response.setContentType(SosFormat.getContentType(sosresponseformat)); 
+               switch(sosresponseformat)
+               {
+                    case JSON :  if(snannySostServerConfig.isJsonObject())
+                                 {
+                                    JSONObject jSONObject = JSONML.toJSONObject(uuidFileContent);
+                                    out.append(jSONObject.toString());
+                                 }
+                                 else
+                                 {                                   
+                                    JSONArray jsonArray = JSONML.toJSONArray(uuidFileContent);
+                                    out.append(jsonArray.toString());
+                                 }
+                                 break;
+
+                    case XML :  out.append(uuidFileContent);
+                                break;                    
+               }           
+            }
+            catch(IOException io)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_describeSensor,Status.SERVICE_UNAVAILABLE);
+            }     
+            catch(JSONException je)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_JSON_CONVERSION+je.getMessage(),Status.SERVICE_UNAVAILABLE);
+            }
         }
     }            
     
@@ -385,35 +480,90 @@ public class Sos extends HttpServlet {
      * @param request Http Servlet Request
      * @param response Http Servlet Response
      * @param out PrintWriter for Http Servlet Response
-     * @param sensorNannyConfig the sos server configuration
-     * @throws SensorNannyException 
+     * @param snannySostServerConfig the sos server configuration
+     * @throws SnannySostServerException 
      */
-    private void  getObservationById(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SensorNannyConfig sensorNannyConfig) throws SensorNannyException
+    private void  getObservationById(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SnannySostServerConfig snannySostServerConfig) throws SnannySostServerException
     {                        
         String uuid = getSosObservationUuid(request);
-        File uuidFile = SensorNannyConfig.singleton(request.getServletContext()).getOemFile(uuid);        
         SOSFORMAT sosresponseformat = getResponseFormatParameter(request);
-        
-        try
+        if(snannySostServerConfig.isCouchbase())
         {
-           byte[] encoded = Files.readAllBytes(Paths.get(uuidFile.toURI()));
-           String uuidFileContent = new String(encoded, sensorNannyConfig.getCharset());
-           response.setContentType(SosFormat.getContentType(sosresponseformat));                        
-           switch(sosresponseformat)
-           {
-                case JSON : //JSONObject jsonObject = XMLR.toJSONObject(uuidFileContent);
-                            //out.append(jsonObject.toString());
-                            JSONArray jsonArray = JSONML.toJSONArray(uuidFileContent);
-                            out.append(jsonArray.toString());
-                            break;
-                    
-                case XML :  out.append(uuidFileContent);
-                            break;                    
-           }                     
+            try
+            {                                
+               JsonDocument jsonDocument = CouchbaseManager.getObservationBucket().get(uuid);
+                              
+               if(jsonDocument == null)
+               {
+                   throw new SnannySostServerException(SnannySostServerMessages.ERROR_NO_UUID_RECORD_1of2+
+                                              uuid+
+                                              SnannySostServerMessages.ERROR_NO_UUID_RECORD_2of2,
+                                              Status.NOT_FOUND); 
+               }                              
+               response.setContentType(SosFormat.getContentType(sosresponseformat));
+               switch(sosresponseformat)
+               {
+                    case JSON :  if(snannySostServerConfig.isJsonObject())
+                                 {
+                                     out.append(new JsonTranscoder().jsonObjectToString(jsonDocument.content().getObject(SnannySostServerConfig.FilejsonField)));
+                                 }                                   
+                                 else   
+                                 {
+                                     out.append(new JsonArrayTranscoder().jsonArrayToString(jsonDocument.content().getArray(SnannySostServerConfig.FilejsonField)));
+                                 }                                  
+                                 break;
+
+                    case XML :  if(snannySostServerConfig.isJsonObject())
+                                {
+                                    JSONObject jSONObject = new JSONObject(StringEscapeUtils.unescapeXml(new JsonTranscoder().jsonObjectToString(jsonDocument.content().getObject(SnannySostServerConfig.FilejsonField))));
+                                    out.append(JSONML.toString(jSONObject));
+                                }
+                                else
+                                {
+                                    JSONArray jsonArray = new JSONArray(StringEscapeUtils.unescapeXml(new JsonArrayTranscoder().jsonArrayToString(jsonDocument.content().getArray(SnannySostServerConfig.FilejsonField))));                                
+                                    out.append(JSONML.toString(jsonArray));
+                                }                                
+                                break;                    
+               } 
+                
+               
+            }
+            catch(Exception ex)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_COUCHBASE_ERROR+ex.getMessage(),Status.SERVICE_UNAVAILABLE);
+            }
         }
-        catch(Exception ex)
+        else
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_describeSensor,Status.SERVICE_UNAVAILABLE);
+            File uuidFile = SnannySostServerConfig.singleton(request.getServletContext()).getOemFile(uuid);        
+            try
+            {
+               byte[] encoded = Files.readAllBytes(Paths.get(uuidFile.toURI()));
+               String uuidFileContent = new String(encoded, snannySostServerConfig.getCharset());
+               response.setContentType(SosFormat.getContentType(sosresponseformat));                        
+               switch(sosresponseformat)
+               {
+                    case JSON : if(snannySostServerConfig.isJsonObject())
+                                {
+                                    JSONObject jsonObject = JSONML.toJSONObject(uuidFileContent);
+                                    out.append(jsonObject.toString());
+                                }
+                                else
+                                {
+                                    JSONArray jsonArray = JSONML.toJSONArray(uuidFileContent);
+                                    out.append(jsonArray.toString());
+                                }
+                                
+                                break;
+
+                    case XML :  out.append(uuidFileContent);
+                                break;                    
+               }                     
+            }
+            catch(Exception ex)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_describeSensor,Status.SERVICE_UNAVAILABLE);
+            }
         }
     }
     
@@ -423,23 +573,44 @@ public class Sos extends HttpServlet {
      * @param request Http Servlet Request
      * @param response Http Servlet Response
      * @param out PrintWriter for Http Servlet Response
-     * @param sensorNannyConfig the sos server configuration
+     * @param snannySostServerConfig the sos server configuration
      * @param uuid the uuid of the deployed sensor
-     * @throws SensorNannyException (I/O problem)
+     * @throws SnannySostServerException (I/O problem)
      */
-    private void  deleteSensor(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SensorNannyConfig sensorNannyConfig,String uuid) throws SensorNannyException
+    private void  deleteSensor(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SnannySostServerConfig snannySostServerConfig,String uuid) throws SnannySostServerException
     {        
-        File uuidFile = SensorNannyConfig.singleton(request.getServletContext()).getSensorMlFile(uuid);         
-        Path fp = uuidFile.toPath();
-        try
+        if(snannySostServerConfig.isCouchbase())
         {
-            Files.delete(fp);
+            try                
+            {
+                if(CouchbaseManager.getSystemBucket().remove(uuid,
+                                                             PersistTo.MASTER,
+                                                             ReplicateTo.ONE,
+                                                             snannySostServerConfig.getCouchbaseTimeOutMS(),
+                                                             TimeUnit.MILLISECONDS) == null)
+                {
+                    System.out.println("*************************************** deleteSensor null");
+                }
+            }
+            catch(Exception ex)                
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_COUCHBASE_deleteSensor+ex.getMessage(),Status.SERVICE_UNAVAILABLE);
+            }
         }
-        catch(IOException io)
+        else
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_deleteSensor+io.getMessage(),Status.SERVICE_UNAVAILABLE);
-        }        
-        Success.submit(SensorNannyMessages.DELETE_SENSOR_OK_1of2+uuid+SensorNannyMessages.DELETE_SENSOR_OK_2of2,response,out,sensorNannyConfig);
+            File uuidFile = snannySostServerConfig.getSensorMlFile(uuid);         
+            Path fp = uuidFile.toPath();
+            try
+            {
+                Files.delete(fp);
+            }
+            catch(IOException io)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_deleteSensor+io.getMessage(),Status.SERVICE_UNAVAILABLE);
+            }    
+        }
+        Success.submit(SnannySostServerMessages.DELETE_SENSOR_OK_1of2+uuid+SnannySostServerMessages.DELETE_SENSOR_OK_2of2,response,out,snannySostServerConfig);
     }
     
     
@@ -449,23 +620,44 @@ public class Sos extends HttpServlet {
      * @param request Http Servlet Request
      * @param response Http Servlet Response
      * @param out PrintWriter for Http Servlet Response
-     * @param sensorNannyConfig
+     * @param snannySostServerConfig
      * @param uuid the uuid of the registered data
-     * @throws SensorNannyException (I/O problem)
+     * @throws SnannySostServerException (I/O problem)
      */
-    private void  deleteObservation(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SensorNannyConfig sensorNannyConfig,String uuid) throws SensorNannyException
+    private void  deleteObservation(HttpServletRequest request,HttpServletResponse response,PrintWriter out,SnannySostServerConfig snannySostServerConfig,String uuid) throws SnannySostServerException
     {
-        File uuidFile = SensorNannyConfig.singleton(request.getServletContext()).getOemFile(uuid);
-        Path fp = uuidFile.toPath();
-        try
+        if(snannySostServerConfig.isCouchbase())
         {
-            Files.delete(fp);
+            try                
+            {
+                if(CouchbaseManager.getSystemBucket().remove(uuid,
+                                                             PersistTo.MASTER,
+                                                             ReplicateTo.ONE,
+                                                             snannySostServerConfig.getCouchbaseTimeOutMS(),
+                                                             TimeUnit.MILLISECONDS) == null)
+                {
+                    System.out.println("*************************************** deleteObservation null");
+                }    
+            }
+            catch(Exception ex)                
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_COUCHBASE_deleteObservation+ex.getMessage(),Status.SERVICE_UNAVAILABLE);
+            }
         }
-        catch(IOException io)
+        else
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_deleteObservation+io.getMessage(),Status.SERVICE_UNAVAILABLE);
+            File uuidFile = snannySostServerConfig.getOemFile(uuid);
+            Path fp = uuidFile.toPath();
+            try
+            {
+                Files.delete(fp);
+            }
+            catch(IOException io)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_deleteObservation+io.getMessage(),Status.SERVICE_UNAVAILABLE);
+            }
         }
-        Success.submit(SensorNannyMessages.DELETE_OBSERVATION_OK_1of2+uuid+SensorNannyMessages.DELETE_OBSERVATION_OK_2of2,response,out,sensorNannyConfig);
+        Success.submit(SnannySostServerMessages.DELETE_OBSERVATION_OK_1of2+uuid+SnannySostServerMessages.DELETE_OBSERVATION_OK_2of2,response,out,snannySostServerConfig);
     }
     
     // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
@@ -480,7 +672,7 @@ public class Sos extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        processRequest(request, response,false);
+        processRequest(request, response,false);               
     }
 
     /**
@@ -507,4 +699,4 @@ public class Sos extends HttpServlet {
         return "SOS SERVER";
     }// </editor-fold>
 
-}
+    }

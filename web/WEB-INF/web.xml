@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app version="3.1" xmlns="http://xmlns.jcp.org/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd">
+    <listener>
+        <listener-class>sos.couchbase.CouchbaseManager</listener-class>
+    </listener>
+    <!-- for server, https (but not required)                                                   -->
+    <!-- Don't modify CASstart CASend comments, they are used with sed to enable or disable cas -->
+    <!--CASstart- ->
+    <filter>
+        <description>The CAS filter is the simplest way of CAS-protecting your Java Servlets application.</description>
+        <display-name>CASFilter</display-name>
+        <filter-name>CAS Filter</filter-name> 
+        <filter-class>edu.yale.its.tp.cas.client.filter.CASFilter</filter-class>
+        <init-param>
+            <description>The URL whereat CAS offers its Login page</description>
+            <param-name>edu.yale.its.tp.cas.client.filter.loginUrl</param-name>
+            <param-value>https://users.ifremer.fr/login</param-value>
+        </init-param>
+        <init-param>
+            <description>The URL whereat CAS offers its service ticket or proxy ticket validation service</description>
+            <param-name>edu.yale.its.tp.cas.client.filter.validateUrl</param-name>
+            <param-value>https://users.ifremer.fr/proxyValidate</param-value>
+        </init-param>                            
+        <init-param>
+            <description>This parameter specifies the server name and port of the service being filtered</description>
+            <param-name>edu.yale.its.tp.cas.client.filter.serverName</param-name>
+            <param-value>lareal:8443</param-value>
+        </init-param>
+        <init-param>
+           <param-name>edu.yale.its.tp.cas.client.filter.authorizedProxy</param-name>
+           <param-value>https://lareal:8443/snanny-webImport/CasProxyServlet</param-value>
+        </init-param>
+    </filter>
+    
+    <filter-mapping>
+        <filter-name>CAS Filter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    <!- -CASend-->
+    
+    <welcome-file-list>
+        <welcome-file>index.jsp</welcome-file>
+    </welcome-file-list>
+</web-app>

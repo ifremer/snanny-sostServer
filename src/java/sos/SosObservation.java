@@ -6,8 +6,8 @@
 
 package sos;
 
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import javax.ws.rs.core.Response.Status;
 
 /** Uuid observation extraction from the persistent URL
@@ -29,7 +29,7 @@ public class SosObservation
         int index = observationValue.indexOf(SOS_OBSERVATION_UUID_PREFIX);
         if(index == -1)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_URL_OBSERVATION,Status.BAD_REQUEST);    
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_URL_OBSERVATION,Status.BAD_REQUEST);    
         }
         String uuid = observationValue.substring(index+SOS_OBSERVATION_UUID_PREFIX.length());
         return(uuid);

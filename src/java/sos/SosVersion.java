@@ -6,8 +6,8 @@
 
 package sos;
 
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import javax.ws.rs.core.Response.Status;
 
 /** Manage sos version availability
@@ -41,15 +41,15 @@ public class SosVersion {
      * 
      * @param versionString Http version parameter
      * @return the sos version 
-     * @throws SensorNannyException for unknown version
+     * @throws SnannySostServerException for unknown version
      */
-    public static SOSVERSION get(String versionString) throws SensorNannyException
+    public static SOSVERSION get(String versionString) throws SnannySostServerException
     {
         if(versionString.compareTo(name(SOSVERSION.VERSION_2_0)) == 0)
         {
             return(SOSVERSION.VERSION_2_0);
         }
-        throw new SensorNannyException(SensorNannyMessages.ERROR_VERSION_UNKNOWN+getAvailableSosVersions(),Status.BAD_REQUEST);
+        throw new SnannySostServerException(SnannySostServerMessages.ERROR_VERSION_UNKNOWN+getAvailableSosVersions(),Status.BAD_REQUEST);
     
     }
     

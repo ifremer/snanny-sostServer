@@ -6,8 +6,8 @@
 
 package sos;
 
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import javax.ws.rs.core.Response.Status;
 
 /** Manage sos formats, availability and corresponding content types
@@ -20,6 +20,7 @@ public class SosFormat {
     
     public  static String SOS_RESPONSE_FORMAT_JSON = "application/json;subtype=\"http://www.opengis.net/om/2.0\"";
     public  static String SOS_RESPONSE_FORMAT_XML  = "text/xml;subtype=\"http://www.opengis.net/om/2.0\"";
+    
     
     private static String availableResponseFromats = null;
     
@@ -59,7 +60,7 @@ public class SosFormat {
         {
             return(SOSFORMAT.XML);
         }
-        throw new SensorNannyException(SensorNannyMessages.ERROR_RESPONSE_FORMAT_UNKNOWN+getAvailableSosResponseFormats(),Status.BAD_REQUEST);
+        throw new SnannySostServerException(SnannySostServerMessages.ERROR_RESPONSE_FORMAT_UNKNOWN+getAvailableSosResponseFormats(),Status.BAD_REQUEST);
     
     }
     

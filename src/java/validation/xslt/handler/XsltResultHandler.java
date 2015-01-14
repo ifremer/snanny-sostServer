@@ -6,8 +6,8 @@
 
 package validation.xslt.handler;
 
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import java.io.IOException;
 import java.io.StringReader;
 import javax.ws.rs.core.Response.Status;
@@ -65,7 +65,7 @@ public class XsltResultHandler extends DefaultHandler
         }
         catch(ParserConfigurationException|SAXException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_SAXPARSER_XSLT,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_SAXPARSER_XSLT,Status.SERVICE_UNAVAILABLE);
         }        
     }
     
@@ -87,7 +87,6 @@ public class XsltResultHandler extends DefaultHandler
     {
         try
         {
-           
            InputSource is = new InputSource(new StringReader(xsltResult));
            xsltResultHandler.reset();
            parser.parse(is,xsltResultHandler);
@@ -98,11 +97,11 @@ public class XsltResultHandler extends DefaultHandler
             {
                 return(buffer.toString());
             }
-            throw new SensorNannyException(SensorNannyMessages.ERROR_PARSE_XSLT,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_PARSE_XSLT,Status.BAD_REQUEST);
         }
         catch(IOException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_XSLT,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_XSLT,Status.SERVICE_UNAVAILABLE);
         } 
         return(null);
     }

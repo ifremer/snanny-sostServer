@@ -6,7 +6,11 @@
 
 package sos.insert;
 
-import config.SensorNannyConfig;
+import com.couchbase.client.java.document.JsonDocument;
+import com.couchbase.client.java.document.json.JsonObject;
+import com.couchbase.client.java.transcoder.JsonArrayTranscoder;
+import com.couchbase.client.java.transcoder.JsonTranscoder;
+import config.SnannySostServerConfig;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -14,18 +18,22 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.Response.Status;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import messages.Success;
+import org.json.JSONML;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
+import sos.Sos;
+import sos.couchbase.CouchbaseManager;
 import sos.insert.uuid.handler.SensorMLOemUuid;
 import sos.insert.uuid.handler.Uuids;
 import validation.SosValidation;
@@ -60,24 +68,31 @@ public class InsertObservation extends  DefaultHandler
     private ArrayList<String> oems;
     
     private SAXParser postParser;
+      
+    private JsonArrayTranscoder jsonArrayTranscoder = null;
+    private JsonTranscoder jsonTranscoder = null;
     
     /** private constructor, this class is a singleton
-     * @throws SensorNannyException if sax parser can't be build
+     * @throws SnannySostServerException if sax parser can't be build
      */    
-    private InsertObservation() throws SensorNannyException
+    private InsertObservation() throws SnannySostServerException
     {
-        super();
+        super();        
         buffer = new StringBuilder();
         oems = new ArrayList<>();
         reset();
         try
         {
-           postParser = SAXParserFactory.newInstance().newSAXParser();
+           SAXParserFactory spf = SAXParserFactory.newInstance();
+           //spf.setNamespaceAware(true);
+           postParser = spf.newSAXParser();           
         }
         catch(ParserConfigurationException|SAXException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_SAXPARSER_INSERT,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_SAXPARSER_INSERT,Status.SERVICE_UNAVAILABLE);
         } 
+        jsonArrayTranscoder = new JsonArrayTranscoder();
+        jsonTranscoder = new JsonTranscoder();
     }
     
     
@@ -110,13 +125,17 @@ public class InsertObservation extends  DefaultHandler
     
     /** check observations format and insert observations in sos server
      * 
-     * @param sensorNannyConfig the sos server configuration
+     * @param snannySostServerConfig the sos server configuration
      * @param contentPost the content post with one or more observations
      * @param response Http Servlet response
      * @param out PrintWriter for Http Servlet Response
-     * @throws SensorNannyException if insertion failed
+     * @param sampleBean
+     * @throws SnannySostServerException if insertion failed
      */
-    public synchronized void insert(SensorNannyConfig sensorNannyConfig,String contentPost,HttpServletResponse response,PrintWriter out) throws SensorNannyException
+    public synchronized void insert(SnannySostServerConfig snannySostServerConfig,
+                                    String contentPost,
+                                    HttpServletResponse response,
+                                    PrintWriter out) throws SnannySostServerException
     {
         Uuids uuids;
         insertObservation.reset();
@@ -127,39 +146,74 @@ public class InsertObservation extends  DefaultHandler
         }
         catch(SAXException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_PARSE_INSERT,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_PARSE_INSERT,Status.BAD_REQUEST);
         }
         catch(IOException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_INSERT,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_INSERT,Status.SERVICE_UNAVAILABLE);
         }
         
         for(String oem : oems)
         {
             // validate xml
-            SosValidation.singleton(sensorNannyConfig).xsdValidateOem(oem);
-            SosValidation.singleton(sensorNannyConfig).schematronValidateOem(oem);
-
-            // write xml
-            try 
+            SosValidation.singleton(snannySostServerConfig).xsdValidateOem(oem);
+            SosValidation.singleton(snannySostServerConfig).schematronValidateOem(oem);
+            uuids = SensorMLOemUuid.singleton().getUuids(oem);
+            if(snannySostServerConfig.isCouchbase())
             {
-                uuids = SensorMLOemUuid.singleton().getUuids(oem);
-                File dir = sensorNannyConfig.newSensorMlDir(uuids);
-                if(!dir.isDirectory())
-                {
-                    dir.mkdir();
+                try
+                {    
+                    JsonObject jsonObject = JsonObject.empty();                                             
+                    if(snannySostServerConfig.isJsonObject())
+                    {
+                       jsonObject.put(SnannySostServerConfig.FilejsonField,jsonTranscoder.stringToJsonObject(JSONML.toJSONObject(oem).toString()));
+                    }
+                    else
+                    {
+                       jsonObject.put(SnannySostServerConfig.FilejsonField,jsonArrayTranscoder.stringToJsonArray(JSONML.toJSONArray(oem).toString()));                    
+                    }
+                    jsonObject.put(SnannySostServerConfig.AuthorNameField,SnannySostServerConfig.AuthorNameValue);
+                    CouchbaseManager.getObservationBucket().upsert(JsonDocument.create(uuids.getOeMuuid(),jsonObject),
+                                                                   snannySostServerConfig.getCouchbaseTimeOutMS(),
+                                                                   TimeUnit.MILLISECONDS);
+                    Sos.SAMPLE_OBSERVATION_UUID = uuids.getOeMuuid();
                 }
-                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(sensorNannyConfig.newOemFile(uuids)),sensorNannyConfig.getCharset());
-                outputStreamWriter.write(oem);
-                outputStreamWriter.close();   
+                catch(Exception ex)
+                {
+                    throw new SnannySostServerException(SnannySostServerMessages.ERROR_COUCHBASE_ERROR+ex.getMessage(),Status.SERVICE_UNAVAILABLE);
+                }
             }
-            catch(IOException ex)
+            else
             {
-                throw new SensorNannyException(SensorNannyMessages.ERROR_STORE_INSERT,Status.SERVICE_UNAVAILABLE);
+            // write xml
+                try 
+                {
+                    
+                    File dir = snannySostServerConfig.newSensorMlDir(uuids);
+                    if(!dir.isDirectory())
+                    {
+                        dir.mkdir();
+                    }
+                    OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(snannySostServerConfig.newOemFile(uuids)),snannySostServerConfig.getCharset());
+                    outputStreamWriter.write(oem);
+                    outputStreamWriter.close();   
+                }
+                catch(IOException ex)
+                {
+                    throw new SnannySostServerException(SnannySostServerMessages.ERROR_STORE_INSERT,Status.SERVICE_UNAVAILABLE);
+                }
             }
-            Success.submit(SensorNannyMessages.IMPORT_OBSERVATION_OK_1of3+uuids.getSensorMLuuid()+
-                           SensorNannyMessages.IMPORT_OBSERVATION_OK_2of3+uuids.getOeMuuid()+
-                           SensorNannyMessages.IMPORT_OBSERVATION_OK_3of3,response,out,sensorNannyConfig);
+            if(snannySostServerConfig.isCouchbase())
+            {
+                Success.submit(uuids.getOeMuuid()+
+                           SnannySostServerMessages.IMPORT_OBSERVATION_OK_3of3,response,out,snannySostServerConfig);
+            }
+            else
+            {
+                Success.submit(SnannySostServerMessages.IMPORT_OBSERVATION_OK_1of3+uuids.getSensorMLuuid()+
+                           SnannySostServerMessages.IMPORT_OBSERVATION_OK_2of3+uuids.getOeMuuid()+
+                           SnannySostServerMessages.IMPORT_OBSERVATION_OK_3of3,response,out,snannySostServerConfig);
+            }
         
         }
         
@@ -212,7 +266,7 @@ public class InsertObservation extends  DefaultHandler
         }
         else
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
         }
     }
     /** SAX handling, Receive notification of character data inside an element. 
@@ -261,7 +315,7 @@ public class InsertObservation extends  DefaultHandler
         }
         else if(qName.compareTo(INSERT_OBSERVATION) != 0)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
         }
     }
 }

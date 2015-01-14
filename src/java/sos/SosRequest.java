@@ -6,8 +6,8 @@
 
 package sos;
 
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import javax.ws.rs.core.Response.Status;
 
 /** Manage sos request availability
@@ -65,9 +65,9 @@ public class SosRequest {
      * 
      * @param requestString Http request parameter
      * @return the sos request
-     * @throws SensorNannyException for unknown request
+     * @throws SnannySostServerException for unknown request
      */
-    public static SOSREQUEST get(String requestString) throws SensorNannyException
+    public static SOSREQUEST get(String requestString) throws SnannySostServerException
     {
         if(requestString != null)
         {
@@ -79,7 +79,7 @@ public class SosRequest {
                 }
             }
         }
-        throw new SensorNannyException(SensorNannyMessages.ERROR_REQUEST_UNKNOWN+getAvailableSosRequests(),Status.BAD_REQUEST);
+        throw new SnannySostServerException(SnannySostServerMessages.ERROR_REQUEST_UNKNOWN+getAvailableSosRequests(),Status.BAD_REQUEST);
     }
     
     /** Getter for the availability of a specific request

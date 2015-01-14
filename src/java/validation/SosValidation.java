@@ -6,9 +6,9 @@
 
 package validation;
 
-import config.SensorNannyConfig;
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import config.SnannySostServerConfig;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import java.io.IOException;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -46,7 +46,7 @@ public class SosValidation
     private Transformer   oemRransformer = null;
     
     private static SosValidation sosValidation = null;
-    private static SensorNannyConfig sensorNannyConfig = null;
+    private static SnannySostServerConfig snannySostServerConfig = null;
    
     /** private constructor, this class is a singleton.
      * 
@@ -61,14 +61,14 @@ public class SosValidation
     
     /** Singleton getter.
      * 
-     * @param sensorNannyConfig the sos server configuration
+     * @param snannySostServerConfig the sos server configuration
      * @return the unique instance
      */
-    public static synchronized SosValidation singleton(SensorNannyConfig sensorNannyConfig)
+    public static synchronized SosValidation singleton(SnannySostServerConfig snannySostServerConfig)
     {        
         if(sosValidation == null)
         {
-            SosValidation.sensorNannyConfig = sensorNannyConfig;
+            SosValidation.snannySostServerConfig = snannySostServerConfig;
             sosValidation = new SosValidation();
             sosValidation.getSchemaFactory();
             sosValidation.getSensorMlXsdValidator();
@@ -81,9 +81,9 @@ public class SosValidation
     /** validate SensorML with xsd
      * 
      * @param sensorML SensorML content file
-     * @throws SensorNannyException xml not valid or I/O error 
+     * @throws SnannySostServerException xml not valid or I/O error 
      */
-    public synchronized void xsdValidateSensorMl(String sensorML) throws SensorNannyException
+    public synchronized void xsdValidateSensorMl(String sensorML) throws SnannySostServerException
     {
         try
         {
@@ -91,30 +91,30 @@ public class SosValidation
         }
         catch(SAXParseException spe)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_SENSORML_NOT_VALID_4XSD+
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_SENSORML_NOT_VALID_4XSD+
                                            spe.getMessage()+
-                                           SensorNannyMessages.LINE+spe.getLineNumber()+
-                                           SensorNannyMessages.COLUMN+spe.getColumnNumber()+
+                                           SnannySostServerMessages.LINE+spe.getLineNumber()+
+                                           SnannySostServerMessages.COLUMN+spe.getColumnNumber()+
                                            spe.getPublicId(),
                                            Status.BAD_REQUEST);            
         }
         catch(SAXException se)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_SENSORML_NOT_VALID_4XSD+
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_SENSORML_NOT_VALID_4XSD+
                                            se.getMessage(),
                                            Status.BAD_REQUEST);            
         }
         catch(IOException ioe)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_POST,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_POST,Status.SERVICE_UNAVAILABLE);
         }        
     }
     /** validate O&amp;M with xsd
      * 
      * @param oem  O&amp;M content file
-     * @throws SensorNannyException xml not valid or I/O error
+     * @throws SnannySostServerException xml not valid or I/O error
      */
-    public synchronized void xsdValidateOem(String oem) throws SensorNannyException
+    public synchronized void xsdValidateOem(String oem) throws SnannySostServerException
     {                                
         try
         {
@@ -122,42 +122,41 @@ public class SosValidation
         }
         catch(SAXParseException spe)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_OEM_NOT_VALID_4XSD+
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_OEM_NOT_VALID_4XSD+
                                            spe.getMessage()+
-                                           SensorNannyMessages.LINE+spe.getLineNumber()+
-                                           SensorNannyMessages.COLUMN+spe.getColumnNumber()+
+                                           SnannySostServerMessages.LINE+spe.getLineNumber()+
+                                           SnannySostServerMessages.COLUMN+spe.getColumnNumber()+
                                            spe.getPublicId(),
                                            Status.BAD_REQUEST);            
         }
         catch(SAXException se)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_OEM_NOT_VALID_4XSD+
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_OEM_NOT_VALID_4XSD+
                                            se.getMessage(),
                                            Status.BAD_REQUEST);
         }
         catch(IOException ioe)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_POST,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_POST,Status.SERVICE_UNAVAILABLE);
         }        
     }
     
     /** Getter for SensorML xsd validator.
      * (first call in synchronized singleton() method)
-     * @param sensorNannyConfig the sos server configuration
      * @return the sensorMl Xsd Validator
      */
-    private Validator getSensorMlXsdValidator() throws SensorNannyException
+    private Validator getSensorMlXsdValidator() throws SnannySostServerException
     {
         if(sensorMlXsdValidator == null)
         {        
             try
             {
-                sensorMlXsdValidator = getSchemaFactory().newSchema(sensorNannyConfig.getSensorMlXsdUrl()).newValidator();
+                sensorMlXsdValidator = getSchemaFactory().newSchema(snannySostServerConfig.getSensorMlXsdUrl()).newValidator();
                 return(sensorMlXsdValidator);            
             }
             catch(SAXException sAXException) 
             {
-                throw new SensorNannyException(SensorNannyMessages.ERROR_SENSOR_ML_XSD,Status.SERVICE_UNAVAILABLE);
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_SENSOR_ML_XSD,Status.SERVICE_UNAVAILABLE);
             }
         }        
         return(sensorMlXsdValidator);
@@ -165,21 +164,20 @@ public class SosValidation
 
     /** Getter for O&amp;M xsd validator.
      * (first call in synchronized singleton() method)
-     * @param sensorNannyConfig the sos server configuration
      * @return the O&amp;M Xsd Validator
      */
-    private Validator getOemXsdValidator() throws SensorNannyException
+    private Validator getOemXsdValidator() throws SnannySostServerException
     {
         if(oemXsdValidator == null)
         {        
             try
             {
-                oemXsdValidator = getSchemaFactory().newSchema(sensorNannyConfig.getOemXsdUrl()).newValidator();
+                oemXsdValidator = getSchemaFactory().newSchema(snannySostServerConfig.getOemXsdUrl()).newValidator();
                 return(oemXsdValidator);            
             }
             catch(SAXException sAXException) 
             {
-                throw new SensorNannyException(SensorNannyMessages.ERROR_OEM_XSD,Status.SERVICE_UNAVAILABLE);
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_OEM_XSD,Status.SERVICE_UNAVAILABLE);
             }
         }
         return(oemXsdValidator);
@@ -201,7 +199,7 @@ public class SosValidation
             }
             catch(Exception ex) 
             {
-                throw new SensorNannyException(SensorNannyMessages.ERROR_SCHEMA_FACTORY,Status.SERVICE_UNAVAILABLE);
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_SCHEMA_FACTORY,Status.SERVICE_UNAVAILABLE);
             }    
         }
         return schemaFactory;
@@ -217,14 +215,14 @@ public class SosValidation
     {
         if(sensorMlRransformer == null)
         {
-           Source sensormlXsl = new StreamSource(sensorNannyConfig.getSensorMlXslStream());
+           Source sensormlXsl = new StreamSource(snannySostServerConfig.getSensorMlXslStream());
            try
            {
                 sensorMlRransformer = TransformerFactory.newInstance().newTransformer(sensormlXsl);
            }
-           catch(Exception ex) 
+           catch(Exception ex)                
            {
-                throw new SensorNannyException(SensorNannyMessages.ERROR_SENSORML_TRANSFORMER_FACTORY,Status.SERVICE_UNAVAILABLE);
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_SENSORML_TRANSFORMER_FACTORY,Status.SERVICE_UNAVAILABLE);
            }           
         }
         return(sensorMlRransformer);
@@ -239,14 +237,14 @@ public class SosValidation
     {
         if(oemRransformer == null)
         {
-           Source oemXsl = new StreamSource(sensorNannyConfig.getOemXslStream());
+           Source oemXsl = new StreamSource(snannySostServerConfig.getOemXslStream());
            try
            {
                 oemRransformer = TransformerFactory.newInstance().newTransformer(oemXsl);
            }
            catch(Exception ex) 
            {
-                throw new SensorNannyException(SensorNannyMessages.ERROR_SENSORML_TRANSFORMER_FACTORY,Status.SERVICE_UNAVAILABLE);
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_SENSORML_TRANSFORMER_FACTORY,Status.SERVICE_UNAVAILABLE);
            }           
         }
         return(sensorMlRransformer);
@@ -257,9 +255,9 @@ public class SosValidation
      * java -jar saxon/saxon9he.jar -o:sensorml-sdn-core.xsl sensorml-sdn-core.sch  schematron/iso_svrl_for_xslt1.xsl
      * 
      * @param sensorML SensorML content file
-     * @throws SensorNannyException if tranformer failed or xml isn't valid
+     * @throws SnannySostServerException if tranformer failed or xml isn't valid
      */
-    public synchronized void schematronValidateSensorMl(String sensorML) throws SensorNannyException
+    public synchronized void schematronValidateSensorMl(String sensorML) throws SnannySostServerException
     {
         try
         {      
@@ -268,12 +266,12 @@ public class SosValidation
            String error = XsltResultHandler.singleton().analyse(outWriter.getBuffer().toString());
            if(error != null)
            {               
-               throw new SensorNannyException(SensorNannyMessages.ERROR_SENSOR_ML_XSL_VALIDATION+error,Status.BAD_REQUEST);           
+               throw new SnannySostServerException(SnannySostServerMessages.ERROR_SENSOR_ML_XSL_VALIDATION+error,Status.BAD_REQUEST);           
            }
         }
         catch(TransformerException te)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_SENSOR_ML_XSL,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_SENSOR_ML_XSL,Status.SERVICE_UNAVAILABLE);
         }        
     }
       
@@ -282,9 +280,9 @@ public class SosValidation
      * java -jar saxon/saxon9he.jar -o:om-sdn-core.xsl om-sdn-core.sch  schematron/iso_svrl_for_xslt1.xsl
      * 
      * @param oem O&amp;M content file
-     * @throws SensorNannyException if tranformer failed or xml isn't valid
+     * @throws SnannySostServerException if tranformer failed or xml isn't valid
      */
-    public synchronized void schematronValidateOem(String oem) throws SensorNannyException
+    public synchronized void schematronValidateOem(String oem) throws SnannySostServerException
     {
         try
         {      
@@ -293,12 +291,12 @@ public class SosValidation
            String error = XsltResultHandler.singleton().analyse(outWriter.getBuffer().toString());
            if(error != null)
            {               
-               throw new SensorNannyException(SensorNannyMessages.ERROR_OEM_XSL_VALIDATION+error,Status.BAD_REQUEST);           
+               throw new SnannySostServerException(SnannySostServerMessages.ERROR_OEM_XSL_VALIDATION+error,Status.BAD_REQUEST);           
            }
         }
         catch(TransformerException te)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_OEM_XSL,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_OEM_XSL,Status.SERVICE_UNAVAILABLE);
         }        
     }
 }
