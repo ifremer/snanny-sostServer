@@ -12,8 +12,8 @@ import javax.ws.rs.core.Response.Status;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -107,7 +107,7 @@ public class SensorMLOemUuid extends DefaultHandler
     private static SensorMLOemUuid sensorMLOemUuid = null;
     
     /** private constructor, this class is a singleton
-     * @throws SensorNannyException if sax parser can't be build
+     * @throws SnannySostServerException if sax parser can't be build
      */
     protected SensorMLOemUuid()
     {
@@ -121,7 +121,7 @@ public class SensorMLOemUuid extends DefaultHandler
         }
         catch(ParserConfigurationException|SAXException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_SAXPARSER_UUID,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_SAXPARSER_UUID,Status.SERVICE_UNAVAILABLE);
         } 
     }
     /** Singleton getter
@@ -166,13 +166,13 @@ public class SensorMLOemUuid extends DefaultHandler
             {
                 return(uuids);
             }
-            throw new SensorNannyException(SensorNannyMessages.ERROR_PARSE_UUID,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_PARSE_UUID,Status.BAD_REQUEST);
         }
         catch(IOException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_UUID,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_UUID,Status.SERVICE_UNAVAILABLE);
         }
-        throw new SensorNannyException(SensorNannyMessages.ERROR_PARSE_UUID,Status.BAD_REQUEST);
+        throw new SnannySostServerException(SnannySostServerMessages.ERROR_PARSE_UUID,Status.BAD_REQUEST);
     }
         
     /** SAX handling, Receive notification of the start of an element. 

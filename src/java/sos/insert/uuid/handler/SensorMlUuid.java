@@ -6,14 +6,14 @@
 
 package sos.insert.uuid.handler;
 
-import messages.SensorNannyException;
+import messages.SnannySostServerException;
 import java.io.IOException;
 import java.io.StringReader;
 import javax.ws.rs.core.Response.Status;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
-import messages.SensorNannyMessages;
+import messages.SnannySostServerMessages;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -89,9 +89,9 @@ public class SensorMlUuid extends DefaultHandler
     
     
     /** private constructor, this class is a singleton
-     * @throws SensorNannyException if sax parser can't be build
+     * @throws SnannySostServerException if sax parser can't be build
      */
-    protected SensorMlUuid() throws SensorNannyException
+    protected SensorMlUuid() throws SnannySostServerException
     {
         super();
         buffer = new StringBuilder();
@@ -102,7 +102,7 @@ public class SensorMlUuid extends DefaultHandler
         }
         catch(ParserConfigurationException|SAXException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_SAXPARSER_UUID,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_SAXPARSER_UUID,Status.SERVICE_UNAVAILABLE);
         } 
     }
     
@@ -156,13 +156,13 @@ public class SensorMlUuid extends DefaultHandler
             {
                 return(uuid);
             }
-            throw new SensorNannyException(SensorNannyMessages.ERROR_PARSE_UUID,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_PARSE_UUID,Status.BAD_REQUEST);
         }
         catch(IOException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_UUID,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_UUID,Status.SERVICE_UNAVAILABLE);
         }
-        throw new SensorNannyException(SensorNannyMessages.ERROR_PARSE_UUID,Status.BAD_REQUEST);
+        throw new SnannySostServerException(SnannySostServerMessages.ERROR_PARSE_UUID,Status.BAD_REQUEST);
     }
     
     /** SAX handling, Receive notification of the start of an element. 
@@ -318,7 +318,7 @@ public class SensorMlUuid extends DefaultHandler
 
     @Override
     public void endDocument() throws SAXException {
-        throw new SAXException(SensorNannyMessages.ERROR_PARSE_UUID);
+        throw new SAXException(SnannySostServerMessages.ERROR_PARSE_UUID);
     }
 
     

@@ -4,38 +4,38 @@
     Author     : mlarour
 --%>
 
+<%@page import="sos.Sos"%>
 <%@page contentType="text/html" pageEncoding="UTF-8"%>
 <!DOCTYPE html>
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <link rel="stylesheet" type="text/css" href="stylesheet.css" title="Style">
-        <title>SOS SERVER</title>
+        <title>snanny-sostServer</title>
     </head>
-    <body>
+    <body>           
         <%
             String usageUrl;
-            String sampleUrl;
-            String sampleProcedure;
-            String sampleObservation;
-                    
+            String sampleUrl;            
+            String sampleProcedure = request.getRequestURL()+"record/"+Sos.SAMPLE_SYSTEM_UUID;
+            String sampleObservation = request.getRequestURL()+"record/"+Sos.SAMPLE_OBSERVATION_UUID;                                            
         %>        
-        
         <!-- sos servlet -->
         <div class="topNav">
             <ul class="navList">
-                <li>SOS SERVER</li>
+                <li><%out.print(sos.Sos.getInfo());%></li>
             </ul>        
         </div>        
         <div class="contentContainer">
             <div>
-                <% 
+                
+                <%                    
                    if(!sos.Sos.preloaded())
                    {
-                      out.print("<a href=\""+request.getRequestURL()+"sos?preload\"><img src=\"resources/reload.png\" title=\"preload (get xsd from the web)\"></a>"); 
+                      out.print("<h3>Preload xsd from the web</h3><a href=\""+request.getRequestURL()+"sos?preload\"><img src=\"resources/reload.png\" title=\"preload (get xsd from the web)\"></a>"); 
                    }
-                %>
-            </div>
+                %>                
+            </div>                            
             <div class="summary">                       
                 <h3>Request Summary</h3>            
                 <table class="overviewSummary" cellspacing="0" cellpadding="3" border="0" summary="available requests">
@@ -75,15 +75,15 @@
                                 <div class="block">provides sensor metadata in SensorML. The sensor description can contain information about the sensor in general, the identifier and classification, position and observed phenomena, but also details such as calibration data.
                                     <hr />
                                     <b>Usages : </b>
-                                    <br />
-                                    <%                    
+                                    <br />                                    
+                                    <%      
+                                        
                                         usageUrl = request.getRequestURL()+"sos?service=SOS&version=2.0&request=describeSensor&procedure=&lt;procedure id&gt;&responseFormat=&lt;format&gt;";
                                         out.print(usageUrl);
                                     %>
                                     <ul>
                                         <li>&lt;procedure id&gt; is the persistent URL of the procedure
                                         <%
-                                            sampleProcedure = request.getRequestURL()+"record/0f088e5f-e0ad-4936-9024-7b5c9a552b0a";
                                             out.print(" (e.g."+sampleProcedure+")");
                                         %>
                                         </li>
@@ -93,13 +93,13 @@
                                     <b>Samples : </b>
                                     <br />
                                     <%
-                                       sampleUrl = request.getRequestURL()+"sos?service=SOS&version=2.0&request=describeSensor&procedure="+sampleProcedure+"&responseFormat=application/json;subtype=&quot;http://www.opengis.net/om/2.0&quot";
+                                        sampleUrl = request.getRequestURL()+"sos?service=SOS&version=2.0&request=describeSensor&procedure="+sampleProcedure+"&responseFormat=application/json;subtype=&quot;http://www.opengis.net/om/2.0&quot";
                                         out.print("<a href=\""+sampleUrl+"\">"+sampleUrl+"</a>");
                                         out.print("<br />");
                                         sampleUrl = request.getRequestURL()+"sos?service=SOS&version=2.0&request=describeSensor&procedure="+sampleProcedure+"&responseFormat=text/xml;subtype=&quot;http://www.opengis.net/om/2.0&quot;";
                                         out.print("<a href=\""+sampleUrl+"\">"+sampleUrl+"</a>");
                                         out.print("<br />");
-                                    %>
+                                    %>                                    
                                 </div>
                             </td>
                         </tr>
@@ -126,7 +126,6 @@
                                     <ul>
                                         <li>&lt;observation&gt; id is the persistent URL of the observation
                                         <%
-                                            sampleObservation = request.getRequestURL()+"record/seadatanet-pointseries-collection";
                                             out.print(" (e.g."+sampleObservation+")");
                                         %>
                                         </li>
@@ -142,7 +141,7 @@
                                         sampleUrl = request.getRequestURL()+"sos?service=SOS&version=2.0&request=getObservationById&observation="+sampleObservation+"&responseFormat=text/xml;subtype=&quot;http://www.opengis.net/om/2.0&quot;";
                                         out.print("<a href=\""+sampleUrl+"\">"+sampleUrl+"</a>");
                                         out.print("<br />");
-                                    %>
+                                    %>                                    
                                 </div>
                             </td>
                         </tr>
@@ -214,7 +213,6 @@
                                     <ul>
                                         <li>&lt;procedure&gt; id is the persistent URL of the procedure
                                         <%
-                                            sampleProcedure = request.getRequestURL()+"record/0f088e5f-e0ad-4936-9024-7b5c9a552b0a";
                                             out.print(" (e.g."+sampleProcedure+")");
                                         %>
                                         </li>
@@ -223,7 +221,7 @@
                                     <b>Samples : </b>
                                     <br />
                                     <%
-                                       sampleUrl = request.getRequestURL()+"sos?service=SOS&version=2.0&request=deleteSensor&procedure="+sampleProcedure;
+                                        sampleUrl = request.getRequestURL()+"sos?service=SOS&version=2.0&request=deleteSensor&procedure="+sampleProcedure;
                                         out.print("<a href=\""+sampleUrl+"\">"+sampleUrl+"</a>");
                                         out.print("<br />");                                        
                                     %>
@@ -289,7 +287,6 @@
                                     <ul>
                                         <li>&lt;observation&gt; id is the persistent URL of the observation
                                         <%
-                                            sampleObservation = request.getRequestURL()+"record/seadatanet-pointseries-collection";
                                             out.print(" (e.g."+sampleObservation+")");
                                         %>
                                         </li>
@@ -347,9 +344,15 @@
             <br/>
             <hr />
             <h2>Sample :</h2>
-            <h4 class="title">                
+            <h4 class="title">
+                <i>procedure : </i>
                 <%
-                    sampleUrl = request.getRequestURL()+"record/0f088e5f-e0ad-4936-9024-7b5c9a552b0a";
+                    sampleUrl = sampleProcedure;
+                    out.print("<a href=\""+sampleUrl+"\">"+sampleUrl+"</a>");
+                %>
+                <br /><i>observation : </i>
+                <%   
+                    sampleUrl = sampleObservation;
                     out.print("<a href=\""+sampleUrl+"\">"+sampleUrl+"</a>");
                 %>
             </h4>

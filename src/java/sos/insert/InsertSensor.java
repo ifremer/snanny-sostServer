@@ -5,14 +5,19 @@
  */
 
 package sos.insert;
-import config.SensorNannyConfig;
-import messages.SensorNannyException;
-import messages.SensorNannyMessages;
+import com.couchbase.client.java.document.JsonDocument;
+import com.couchbase.client.java.document.json.JsonObject;
+import com.couchbase.client.java.transcoder.JsonArrayTranscoder;
+import com.couchbase.client.java.transcoder.JsonTranscoder;
+import config.SnannySostServerConfig;
+import messages.SnannySostServerException;
+import messages.SnannySostServerMessages;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringReader;
+import java.util.concurrent.TimeUnit;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.core.Response.Status;
 import javax.xml.parsers.ParserConfigurationException;
@@ -27,8 +32,10 @@ import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
+import sos.Sos;
 import sos.SosFormat;
 import sos.SosFormat.SOSFORMAT;
+import sos.couchbase.CouchbaseManager;
 import sos.insert.uuid.handler.SensorMlUuid;
 import validation.SosValidation;
 
@@ -68,27 +75,33 @@ public class InsertSensor extends  DefaultHandler
     // singleton
     private static InsertSensor insertSensor = null;
         
-    
+    private JsonArrayTranscoder jsonArrayTranscoder = null;
+    private JsonTranscoder jsonTranscoder = null;
     
     
     /** private constructor, this class is a singleton
      * 
-     * @throws SensorNannyException if sax parser can't be build 
+     * @throws SnannySostServerException if sax parser can't be build 
      */
-    private InsertSensor() throws SensorNannyException
+    private InsertSensor() throws SnannySostServerException
     {
         super();
         buffer = new StringBuilder();
         reset();
         try
         {
-           postParser = SAXParserFactory.newInstance().newSAXParser();
+           SAXParserFactory spf = SAXParserFactory.newInstance();
+           //spf.setNamespaceAware(true);
+           postParser = spf.newSAXParser();
         }
         catch(ParserConfigurationException|SAXException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_SAXPARSER_INSERT,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_SAXPARSER_INSERT,Status.SERVICE_UNAVAILABLE);        
         }        
+        jsonArrayTranscoder = new JsonArrayTranscoder();
+        jsonTranscoder = new JsonTranscoder();
     }
+    
     /** Singleton getter
      * 
      * @return the unique instance
@@ -120,13 +133,17 @@ public class InsertSensor extends  DefaultHandler
     
     /** Check format, convert from JSON to XML as needed, insert sensor in sos server
      * 
-     * @param sensorNannyConfig the sos server configuration
+     * @param snannySostServerConfig the sos server configuration
      * @param contentPost the content post with sensor in JSON or XML format
      * @param response Http Servlet response
      * @param out PrintWriter for Http Servlet Response
-     * @throws SensorNannyException if insertion failed
+     * @param sampleBean
+     * @throws SnannySostServerException if insertion failed
      */
-    public synchronized void insert(SensorNannyConfig sensorNannyConfig,String contentPost,HttpServletResponse response,PrintWriter out) throws SensorNannyException
+    public synchronized void insert(SnannySostServerConfig snannySostServerConfig,
+                                     String contentPost,
+                                     HttpServletResponse response,
+                                     PrintWriter out) throws SnannySostServerException
     {
         String uuid = "";
         insertSensor.reset();
@@ -134,31 +151,38 @@ public class InsertSensor extends  DefaultHandler
         try
         {   
             InputSource is = new InputSource(new StringReader(contentPost));
-            postParser.parse(is,insertSensor);
+            postParser.parse(is,insertSensor);         
         }
         catch(SAXException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_PARSE_INSERT,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_PARSE_INSERT,Status.BAD_REQUEST);
         }
         catch(IOException ex)
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_IO_INSERT,Status.SERVICE_UNAVAILABLE);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_IO_INSERT,Status.SERVICE_UNAVAILABLE);
         }
         
         // if json content convert it to xml                        
         if(format.isEmpty())
         {
-           throw new SensorNannyException(SensorNannyMessages.ERROR_POST_FORMAT_REQUIRED+SosFormat.getAvailableSosResponseFormats(),Status.BAD_REQUEST);
+           throw new SnannySostServerException(SnannySostServerMessages.ERROR_POST_FORMAT_REQUIRED+SosFormat.getAvailableSosResponseFormats(),Status.BAD_REQUEST);
         }
         SOSFORMAT sosformat = SosFormat.getFormat(format);
         try
         {
             switch(sosformat)
             {
-                case JSON : //JSONObject jsonObject = new JSONObject(sensorML);                            
-                            //sensorML = XMLR.toString(jsonObject);             
-                            JSONArray jsonArray = new JSONArray(StringEscapeUtils.unescapeXml(sensorML));
-                            sensorML = JSONML.toString(jsonArray);
+                
+                case JSON : if(snannySostServerConfig.isJsonObject())
+                            {
+                                JSONObject jSONOject = new JSONObject(StringEscapeUtils.unescapeXml(sensorML));
+                                sensorML = JSONML.toString(jSONOject);
+                            }
+                            else
+                            {
+                                JSONArray jsonArray = new JSONArray(StringEscapeUtils.unescapeXml(sensorML));
+                                sensorML = JSONML.toString(jsonArray);
+                            }
                             break;
 
                 case XML :  break;    
@@ -166,26 +190,55 @@ public class InsertSensor extends  DefaultHandler
         }
         catch(Exception ex)
         {
-           throw new SensorNannyException(SensorNannyMessages.ERROR_JSON_INSERT+ex.getMessage(),Status.BAD_REQUEST);         
-        }        
+           throw new SnannySostServerException(SnannySostServerMessages.ERROR_JSON_INSERT+ex.getMessage(),Status.BAD_REQUEST);         
+        }       
         // validate xml
-        SosValidation.singleton(sensorNannyConfig).xsdValidateSensorMl(sensorML);
-        SosValidation.singleton(sensorNannyConfig).schematronValidateSensorMl(sensorML);
-        // write xml
-        try 
-        {
-            uuid = SensorMlUuid.singleton().getUuid(sensorML);
-            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(sensorNannyConfig.newSensorMlFile(uuid)),sensorNannyConfig.getCharset());
-            outputStreamWriter.write(sensorML);
-            outputStreamWriter.close();            
-        }
-        catch(IOException ex)
-        {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_STORE_INSERT,Status.SERVICE_UNAVAILABLE);
-        }
-        Success.submit(SensorNannyMessages.IMPORT_SENSOR_OK_1of2+uuid+SensorNannyMessages.IMPORT_SENSOR_OK_2of2,response,out,sensorNannyConfig);
+        SosValidation.singleton(snannySostServerConfig).xsdValidateSensorMl(sensorML);
+        SosValidation.singleton(snannySostServerConfig).schematronValidateSensorMl(sensorML);
         
+        uuid = SensorMlUuid.singleton().getUuid(sensorML);
+        if(snannySostServerConfig.isCouchbase())
+        {  
+            try
+            {    
+                JsonObject jsonObject = JsonObject.empty();
+                if(snannySostServerConfig.isJsonObject())
+                {
+                    jsonObject.put(SnannySostServerConfig.FilejsonField,jsonTranscoder.stringToJsonObject(JSONML.toJSONObject(sensorML).toString()));                    
+                }
+                else
+                {
+                    jsonObject.put(SnannySostServerConfig.FilejsonField,jsonArrayTranscoder.stringToJsonArray(JSONML.toJSONArray(sensorML).toString()));
+                }                                 
+                jsonObject.put(SnannySostServerConfig.AuthorNameField,SnannySostServerConfig.AuthorNameValue);
+                CouchbaseManager.getSystemBucket().upsert(JsonDocument.create(uuid,jsonObject),
+                                                          snannySostServerConfig.getCouchbaseTimeOutMS(),
+                                                          TimeUnit.MILLISECONDS);
+                Sos.SAMPLE_SYSTEM_UUID = uuid;
+            }
+            catch(Exception ex)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_COUCHBASE_ERROR+ex.getMessage(),Status.SERVICE_UNAVAILABLE);
+            }
+            
+        }
+        else
+        {
+            // write xml
+            try 
+            {                
+                OutputStreamWriter outputStreamWriter = new OutputStreamWriter(new FileOutputStream(snannySostServerConfig.newSensorMlFile(uuid)),snannySostServerConfig.getCharset());
+                outputStreamWriter.write(sensorML);
+                outputStreamWriter.close();            
+            }
+            catch(IOException ex)
+            {
+                throw new SnannySostServerException(SnannySostServerMessages.ERROR_STORE_INSERT,Status.SERVICE_UNAVAILABLE);
+            }
+        }
+        Success.submit(SnannySostServerMessages.IMPORT_SENSOR_OK_1of2+uuid+SnannySostServerMessages.IMPORT_SENSOR_OK_2of2,response,out,snannySostServerConfig);        
     }
+    
     /** SAX handling, Receive notification of the start of an element. 
      * 
      * @param namespaceURI The Namespace URI, or the empty string if the element has no Namespace URI or if Namespace processing is not being performed.
@@ -207,7 +260,7 @@ public class InsertSensor extends  DefaultHandler
             {
                 if(procedureOn || observablePropertyOn)
                 {
-                    throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+                    throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
                 formatOn = true;
                 format = "";
@@ -217,7 +270,7 @@ public class InsertSensor extends  DefaultHandler
             {
                 if(formatOn || observablePropertyOn)
                 {
-                    throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+                    throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
                 procedureOn = true;
                 sensorML = "";
@@ -227,7 +280,7 @@ public class InsertSensor extends  DefaultHandler
             {
                 if(formatOn || procedureOn)
                 {
-                    throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+                    throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
                 observablePropertyOn = true;
             }
@@ -248,7 +301,7 @@ public class InsertSensor extends  DefaultHandler
         }
         else
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
         }
     }
     
@@ -291,7 +344,7 @@ public class InsertSensor extends  DefaultHandler
             {
                 if(procedureOn || observablePropertyOn)
                 {
-                    throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+                    throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
                 formatOn = false;
                 format = buffer.toString();
@@ -300,7 +353,7 @@ public class InsertSensor extends  DefaultHandler
             {
                 if(formatOn || observablePropertyOn)
                 {
-                    throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+                    throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
                 procedureOn = false;
                 sensorML = buffer.toString();
@@ -309,7 +362,7 @@ public class InsertSensor extends  DefaultHandler
             {
                 if(formatOn || procedureOn)
                 {
-                    throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+                    throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
                 }
                 observablePropertyOn = false;
             }
@@ -322,7 +375,7 @@ public class InsertSensor extends  DefaultHandler
         }
         else
         {
-            throw new SensorNannyException(SensorNannyMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
+            throw new SnannySostServerException(SnannySostServerMessages.ERROR_XML_INSERT+qName,Status.BAD_REQUEST);
         }
     }
 }
