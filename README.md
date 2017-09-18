@@ -1,4 +1,4 @@
-snanny-sostServer
+snanny-sostServer (not used, not maintained)
 =================
 
 SOS basic transactional server
